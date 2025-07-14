@@ -1,4 +1,4 @@
-import puppeteer, { Browser } from 'puppeteer';
+import { Browser } from 'puppeteer';
 
 export async function crawlBosch(model: string, browser: Browser) {
   const page = await browser.newPage();

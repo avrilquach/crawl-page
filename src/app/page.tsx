@@ -97,7 +97,7 @@ export default function CrawlPage() {
           status: 'done',
           result: json,
         };
-      } catch (error: unknown) {
+      } catch{
         tempResults[i] = {
           ...tempResults[i],
           status: 'error',
