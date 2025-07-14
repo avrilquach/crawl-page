@@ -9,7 +9,8 @@ import { crawlHafele } from '../../utils/crawlers/crawlHafele';
 import { crawlBosch } from '../../utils/crawlers/crawlBosch';
 import { crawlSino } from '../../utils/crawlers/crawlSino';
 
-type CrawlFunc = (model: string, browser: Browser) => Promise<any>;
+// 👉 Nếu chưa biết kiểu trả về cụ thể, dùng unknown để an toàn
+type CrawlFunc = (model: string, browser: Browser) => Promise<unknown>;
 
 const handlers: Record<string, CrawlFunc> = {
   hafele: crawlHafele,
@@ -17,17 +18,22 @@ const handlers: Record<string, CrawlFunc> = {
   sino: crawlSino,
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<void> {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
   }
 
   try {
-    const { website, model } = req.body;
+    const { website, model } = req.body as { website: string; model: string };
 
     const handler = handlers[website];
     if (!handler) {
-      return res.status(400).json({ error: `Website ${website} không được hỗ trợ.` });
+      res.status(400).json({ error: `Website ${website} không được hỗ trợ.` });
+      return;
     }
 
     const browser = await puppeteer.launch({
@@ -49,8 +55,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await browser.close();
 
     res.status(200).json({ data: result });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     console.error('❌ Lỗi khi crawl:', error);
-    res.status(500).json({ error: error.message || 'Internal Server Error' });
+    res.status(500).json({ error: message });
   }
 }
