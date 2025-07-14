@@ -9,14 +9,20 @@ interface WebOption {
   label: string;
 }
 
+interface ParsedExcelRow {
+  id?: string;
+  ssku?: string;
+  model?: string;
+  [key: string]: unknown;
+}
+
 type CrawlResult = {
   id?: string;
   ssku?: string;
   model?: string;
   status: 'processing' | 'done' | 'error';
-  result: any; // có thể thay `any` bằng kiểu dữ liệu kết quả thực tế
+  result: unknown; // 👈 thay vì any
 };
-
 
 const websiteOptions: WebOption[] = [
   { value: 'hafele', label: 'Hafele - https://www.hafele.com.vn/' },
@@ -26,10 +32,10 @@ const websiteOptions: WebOption[] = [
 
 export default function CrawlPage() {
   const [selectedWebsite, setSelectedWebsite] = useState<WebOption | null>(null);
-  const [fileData, setFileData] = useState<any[]>([]);
+  const [fileData, setFileData] = useState<ParsedExcelRow[]>([]);
   const [results, setResults] = useState<CrawlResult[]>([]);
   const [isCrawling, setIsCrawling] = useState(false);
-  const [progress, setProgress] = useState(0); // ✅ progress %
+  const [progress, setProgress] = useState(0);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -40,7 +46,7 @@ export default function CrawlPage() {
       const data = new Uint8Array(evt.target?.result as ArrayBuffer);
       const workbook = XLSX.read(data, { type: 'array' });
       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json<ParsedExcelRow>(worksheet);
       setFileData(jsonData);
     };
     reader.readAsArrayBuffer(file);
@@ -61,13 +67,12 @@ export default function CrawlPage() {
     const total = fileData.length;
 
     const tempResults: CrawlResult[] = fileData.map(row => ({
-      id: row.id || row.ID || row.Id, // hỗ trợ nhiều kiểu tên cột
-      ssku: row.ssku || row.ssku || row['Mã SP'],
-      model: row.model || row.Model || row.MODEL || row['Tên Model'],
+      id: String(row.id || row.ID || row.Id || ''),
+      ssku: String(row.ssku || row['Mã SP'] || ''),
+      model: String(row.model || row.Model || row.MODEL || row['Tên Model'] || ''),
       status: 'processing',
       result: null,
     }));
-
 
     setResults(tempResults);
 
@@ -92,7 +97,7 @@ export default function CrawlPage() {
           status: 'done',
           result: json,
         };
-      } catch (err) {
+      } catch (error: unknown) {
         tempResults[i] = {
           ...tempResults[i],
           status: 'error',
@@ -100,13 +105,13 @@ export default function CrawlPage() {
         };
       }
 
-      // ✅ Cập nhật trạng thái và tiến trình
       setResults([...tempResults]);
       setProgress(Math.round(((i + 1) / total) * 100));
     }
 
     setIsCrawling(false);
   };
+
   const exportToExcel = () => {
     if (results.length === 0) return;
 
@@ -115,7 +120,7 @@ export default function CrawlPage() {
       'Mã SP': ssku,
       Model: model,
       TrạngThái: status,
-      KếtQuả: typeof result === 'object' ? JSON.stringify(result) : result,
+      KếtQuả: typeof result === 'object' ? JSON.stringify(result) : String(result),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -159,7 +164,6 @@ export default function CrawlPage() {
         {isCrawling ? 'Đang crawl...' : 'Crawl Data'}
       </button>
 
-      {/* ✅ Progress bar */}
       {isCrawling && (
         <div className="mt-4">
           <div className="h-4 bg-gray-200 rounded">
@@ -183,10 +187,10 @@ export default function CrawlPage() {
               >
                 <span>{item.model}</span>
                 <span>
-            {item.status === 'processing' && '⏳ Đang xử lý...'}
+                  {item.status === 'processing' && '⏳ Đang xử lý...'}
                   {item.status === 'done' && '✅ Hoàn thành'}
                   {item.status === 'error' && '❌ Lỗi'}
-          </span>
+                </span>
               </li>
             ))}
           </ul>
@@ -199,7 +203,6 @@ export default function CrawlPage() {
           </button>
         </div>
       )}
-
     </div>
   );
 }
